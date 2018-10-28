@@ -3,6 +3,13 @@
 <p>socket transmission and encryption protocols</p>
 <p>project is intended to simplify socket encryption and common server/client<br> tasks</p>
 
+## installation
+
+<p>clone this repository or simply your favorite way over pip:</p>
+
+```
+python3 -m pip install netcrypt
+```
 
 ## how it works
 
