@@ -1,7 +1,7 @@
 # netcrypt
 
 <p>socket transmission and encryption protocols</p>
-<p>project is intended to simplify socket encryption and common server/client<br> tasks</p>
+<p>project is intended to simplify socket encryption and common server/client<br> communication tasks</p>
 
 ## installation
 
