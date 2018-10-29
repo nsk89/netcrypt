@@ -1,7 +1,7 @@
 # netcrypt
 
 <p>socket transmission and encryption protocols</p>
-<p>project is intended to simplify socket encryption and common server/client<br> communication tasks</p>
+<p>project is intended to simplify socket encryption and common server/client communication tasks</p>
 
 ## installation
 
@@ -13,13 +13,10 @@ python3 -m pip install netcrypt
 
 ## how it works
 
-<p>this project doesn't incorporate basic server/client functions besides communication, though that may change in the future.<br>the current state of the project mainly deals with sending data, including files, over sockets securely.
-<br>data to be sent is first encrypted using AES. the AES key and init vector are then encrypted with a RSA cipher from the <br>public key set from the exchanging socket connection. the data(message) then creates a hash verification for use on <br>decryption to verify data itegrity. 
+<p>this project doesn't incorporate basic server/client functions besides communication, though that may change in the future. the current state of the project mainly deals with sending data, including files, over sockets securely. data to be sent is first encrypted using AES. the AES key and init vector are then encrypted with a RSA cipher from the public key set from the exchanging socket connection. the data(message) then creates a hash verification for use on decryption to verify data itegrity. 
 <br>
-<br>key, init vector, data verification hash and data are then stored in a dictionary to be dumped into a serialized bytes
-<br>object. the serialized object is then structured into internet byte order and length of object is stored in the first four <br>bytes of transmission. on receive, the first four bytes are read from the stream retrieving the stream length, the <br>remainder of the stream is collected and read in based off the length. the process goes in reverse from there.
 <br>
-<br>files being sent undergo a very easy process before the above algorithim, they're simply put into a dictionary file <br>filename:data
+key, init vector, data verification hash and data are then stored in a dictionary to be dumped into a serialized bytes object. the serialized object is then structured into internet byte order and length of object is stored in the first four bytes of transmission. on receive, the first four bytes are read from the stream retrieving the stream length, the remainder of the stream is collected and read in based off the length. the process goes in reverse from there.
 <br>
 <br>all socket data encryption is done in communication.py which methods use cryptography.py(based off PyCryptodome ciphers).
 
@@ -155,3 +152,130 @@ crypto_traffic.recv_file(tor_sock)
 print('file received and written to disk!')
 
 ```
+
+# cryptographic methods
+
+## getting started
+
+<p>create an instance of CryptoProtocol:</p>
+
+```
+from netcrypt.cryptography import CryptoProtocol
+
+
+crypto_worker = CryptoProtocol()
+```
+
+<br>
+
+<p>generate random keys:</p>
+
+```
+aes_key = crypto_worker.generate_key(32)
+init_vect = crypto_worker.generate_key(16)
+```
+
+<br>
+
+<p>encrypt data with AES cipher:</p>
+
+```
+data = 'hello, world'
+aes_key = crypto_worker.generate_key(32)
+init_vect = crypto_worker.genreate_key(16)
+encrypted_data = crypto_worker.encrypt(aes_key, init_vect, data)
+```
+
+<br>
+
+<p>decrypt data with AES cipher:</p>
+
+```
+decrypted_data = crypto_worker.decrypt(aes_key, init_vect, encrypted_data)
+```
+
+<br>
+
+<p>create RSA private key and return public key:</p>
+
+```
+my_public_key = crypto_worker.start_rsa(4096)
+```
+
+<br>
+
+<p>encrypt AES encryption key with RSA public key:</p>
+
+```
+encrypted_aes_key = crypto_worker.rsa_encrypt(my_public_key, aes_key)
+```
+
+<br>
+
+<p>decrypt AES encryption key with RSA private key:</p>
+
+```
+decrypted_aes_key = crypto_worker.rsa_decrypt(encrypted_aes_key)
+```
+
+<br>
+
+## test crypto run
+
+```
+from netcrypt.cryptography import CryptoProtocol
+
+
+#  AES TEST
+
+data = 'Hello there world!'  # some data to encrypt
+print(f'starting data: {data}')
+crypto_worker = CryptoProtocol()  # call cryptography object
+
+# generate random keys for encryption
+aes_key = crypto_worker.generate_key(32)
+init_vector = crypto_worker.generate_key(16)
+
+encrypted_data = crypto_worker.aes_encrypt(aes_key, init_vector, data)  # encrypt data
+print(f'AES key: {aes_key}\ninitialization vector: {init_vector}\nencrypted data: {encrypted_data}')
+
+decrypted_data = crypto_worker.aes_decrypt(aes_key, init_vector, encrypted_data)  # decrypt data
+print(f'decrypted data: {decrypted_data}')
+
+
+# RSA TEST
+
+data = 'Hello there World!'  # some data to encrypt
+print(f'starting data: {data}')
+crypto_worker = CryptoProtocol()  # call cryptography object
+my_public_key = crypto_worker.start_rsa(4096)  # generate RSA private/public keys
+
+# generate random encryption keys for aes
+aes_key = crypto_worker.generate_key(32)
+init_vector = crypto_worker.generate_key(16)
+
+encrypted_data = crypto_worker.aes_encrypt(aes_key, init_vector, data)  # encrypt data with encryption keys
+
+# use RSA cipher to encrypt the encryption key and init vector used by the AES cipher
+encrypted_aes_key = crypto_worker.rsa_encrypt(my_public_key, aes_key)
+encrypted_init_vector = crypto_worker.rsa_encrypt(my_public_key, init_vector)
+# at this point encrypted key, vector and data are ready to send in a dict over a socket
+print(f'encrypted AES key: {encrypted_aes_key}\nencrypted initialization vector: {encrypted_init_vector}\n'
+      f'encrypted data: {encrypted_data}')
+
+
+# use RSA private key to decrypt the encrypted AES cipher key and init vector
+decrypted_aes_key = crypto_worker.rsa_decrypt(encrypted_aes_key)
+decrypted_init_vector = crypto_worker.rsa_decrypt(encrypted_init_vector)
+
+# data is decrypted back into plaintext
+decrypted_data = crypto_worker.aes_decrypt(decrypted_aes_key, decrypted_init_vector, encrypted_data)
+print(f'decrypted data: {decrypted_data}')
+
+```
+
+
+
+
+
+
