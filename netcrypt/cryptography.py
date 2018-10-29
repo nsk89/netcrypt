@@ -1,4 +1,6 @@
+import hmac
 import hashlib
+from Crypto import Random
 from Crypto.Cipher import AES
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
@@ -8,6 +10,15 @@ class CryptoProtocol:  # base protocol for crypto methods
     def __init__(self):
         self.private_key = None
         self.public_key = None
+
+    def generate_key(self, length):
+        key = Random.get_random_bytes(length)  # use PyCrypto Random module to get random bytes based off system state
+        secret = Random.get_random_bytes(length)
+
+        # create hmac sha3_384 key using key/secret
+        generated_key = hmac.new(key, secret, hashlib.sha384).hexdigest()[:length]
+
+        return bytes(generated_key, 'utf-8')
 
     def aes_encrypt(self, key, salt, data):
         # check for or convert to bytes
@@ -30,7 +41,7 @@ class CryptoProtocol:  # base protocol for crypto methods
         del cipher
         return data
 
-    def start_rsa(self, block_size=4096):  # block size, change for RSA encryption strength, 1024, 2048, 4096
+    def start_rsa(self, block_size):  # block size, change for RSA encryption strength, 1024, 2048, 4096
         self.private_key = RSA.generate(block_size)  # create RSA private key
         self.public_key = self.private_key.publickey().exportKey()  # get public key ready for export
 

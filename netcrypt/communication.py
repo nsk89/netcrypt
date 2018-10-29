@@ -5,27 +5,20 @@ import hmac
 import ntpath
 import os
 import socks
-from Crypto import Random
+from Crypto.PublicKey import RSA  # for line 147
 from netcrypt.cryptography import CryptoProtocol
 
 
 class SharedMethods:  # methods used for both server and client
-    def __init__(self):
+    def __init__(self, rsa_block_size, aes_block_size):
+        self.check_block_size(rsa_block_size, aes_block_size)
         self.crypto_worker = CryptoProtocol()  # create cryptography object for cipher operations
-        self.block_size = 4096
+        self.block_size = rsa_block_size  # set to 1024, 2048, 4096
+        self.aes_block_size = aes_block_size  # set to 16(128 bit) or 32(256 bit)
         self.public_key = ''
 
     def set_public_key(self, public_key):
         self.public_key = public_key
-
-    def generate_key(self, length):
-        key = Random.get_random_bytes(length)  # use PyCrypto Random module to get random bytes based off system state
-        secret = Random.get_random_bytes(length)
-
-        # create hmac sha3_384 key using key/secret
-        generated_key = hmac.new(key, secret, hashlib.sha384).hexdigest()[:length]
-
-        return bytes(generated_key, 'utf-8')
 
     def recv_message(self, socket_object):
         raw_msg_length = self.recv_all(socket_object, 4)  # receive first 4 bytes of data in stream
@@ -81,8 +74,8 @@ class SharedMethods:  # methods used for both server and client
 
     def send_crypto_stream(self, socket_object, message):  # handle outgoing encrypted data stream
         # generate encryption keys based off system state
-        aes_key = self.generate_key(32)
-        aes_salt = self.generate_key(16)
+        aes_key = self.crypto_worker.generate_key(self.aes_block_size)
+        aes_salt = self.crypto_worker.generate_key(16)
 
         # encrypt encryption keys with public key encryption
         aes_key_encrypted = self.crypto_worker.rsa_encrypt(self.public_key, aes_key)
@@ -128,12 +121,40 @@ class SharedMethods:  # methods used for both server and client
         else:
             return b'Message Verification Failure'
 
+    def check_block_size(self, rsa_block_size, aes_block_size):  # ensure user sets correct cipher block sizes
+        aes_block_size_list = [16, 32]
+        rsa_block_size_list = [1024, 2048, 4096]
+        if rsa_block_size in rsa_block_size_list and aes_block_size in aes_block_size_list:
+            pass
+        else:
+            print('valid RSA block sizes are:')
+            print(rsa_block_size_list)
+            print('valid AES block sizes are:')
+            print(aes_block_size_list)
+            print(f'\n\ncurrent block size is set:\nRSA: {rsa_block_size}\nAES: {aes_block_size}')
+            exit(0)
+
+    def check_importable_public_key(self, public_key):  # https://github.com/nsk89/netcrypt/issues/1
+        try:
+            RSA.importKey(public_key)
+            return True
+        except ValueError:
+            with open('failed_public_key_log.pem', 'ab') as f:
+                f.write(public_key+b'\n\n')
+            f.close()
+            print('RSA key import failed, please post bad key log data to\nnetcrypt github issue #')
+            return False
+
 
 class ClientProtocol(SharedMethods):  # inherits the shared methods
-    def __init__(self):
-        super().__init__()  # init inherited variables
+    def __init__(self, rsa_block_size=4096, aes_block_size=32):
+        super().__init__(rsa_block_size, aes_block_size)  # init inherited variables
         self.server_public_key = None
-        self.client_public_key = self.crypto_worker.start_rsa(self.block_size)  # generate required RSA information
+
+        is_importable = False  # https://github.com/nsk89/netcrypt/issues/1
+        while is_importable is False:
+            self.client_public_key = self.crypto_worker.start_rsa(self.block_size)  # generate required RSA information
+            is_importable = self.check_importable_public_key(self.client_public_key)
 
     def recv_crypto_stream(self, sock):  # return inherited method
         return super(ClientProtocol, self).recv_crypto_stream(sock)
@@ -165,9 +186,13 @@ class ClientProtocol(SharedMethods):  # inherits the shared methods
 
 class ServerProtocol(SharedMethods):  # inherits the shared methods
     # comment information is similar as above except with different socket requirements
-    def __init__(self):
-        super().__init__()  # init inherited variables
-        self.server_public_key = self.crypto_worker.start_rsa(self.block_size)
+    def __init__(self, rsa_block_size=4096, aes_block_size=32):
+        super().__init__(rsa_block_size, aes_block_size)  # init inherited variables
+
+        is_importable = False  # https://github.com/nsk89/netcrypt/issues/1
+        while is_importable is False:
+            self.server_public_key = self.crypto_worker.start_rsa(self.block_size)
+            is_importable = self.check_importable_public_key(self.server_public_key)
 
     def recv_crypto_stream(self, socket_object):  # return inherited method
         return super(ServerProtocol, self).recv_crypto_stream(socket_object)
