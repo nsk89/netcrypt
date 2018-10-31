@@ -1,7 +1,7 @@
 # netcrypt
 
 <p>socket transmission and encryption protocols</p>
-<p>project is intended to simplify socket encryption and common server/client communication tasks</p>
+<p>simplifying socket data stream cryptography using RSA public keys and AES data encryption, using PyCryptodome cryptographic primitives</p>
 
 ## installation
 
